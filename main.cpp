@@ -2,9 +2,12 @@
 #include<bits/stdc++.h>
 #include<mpi.h>
 
+#define ROOT_ID 0
+
 using namespace std;
 
-void MergeArrays(vector<int> &v1, int *v2, int m) {
+// Merge algo TC = O(m+n)
+void merge(vector<int> &v1, int *v2, int m) {
     vector<int> res;
     int n = v1.size();
     int i = 0, j = 0;
@@ -33,7 +36,7 @@ void MergeArrays(vector<int> &v1, int *v2, int m) {
     v1 = res;
 }
 
-void QuickSort(int i, int j, int *A) {
+void quickSort(int i, int j, int *A) {
     if (i >= j) {
         return;
     } else {
@@ -41,7 +44,6 @@ void QuickSort(int i, int j, int *A) {
         int low = i + 1;
         int high = j;
         while (low <= high) {
-            // cout<<"hey";
             while (low <= high && A[high] > A[pivot]) {
                 high--;
             }
@@ -56,8 +58,8 @@ void QuickSort(int i, int j, int *A) {
             high--;
         }
         swap(A[high], A[pivot]);
-        QuickSort(high + 1, j, A);
-        QuickSort(i, high - 1, A);
+        quickSort(high + 1, j, A);
+        quickSort(i, high - 1, A);
     }
 }
 
@@ -69,68 +71,72 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &n_procs);
 
     int array_size;
-    if (my_id == 0) {
+    if (my_id == ROOT_ID) {
         // get array size in root proc
-//        array_size = stoi(argv[1]);
         cin >> array_size;
-        cout << "array_size=" << array_size << endl;
+//        cout << "array_size=" << array_size << endl;
     }
 
-    MPI_Bcast(&array_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&array_size, 1, MPI_INT, ROOT_ID, MPI_COMM_WORLD);
 
     int A[array_size];
-    if (my_id == 0) {
+    if (my_id == ROOT_ID) {
+        // read input array in root proc
+//        cout << "Input array " << endl;
         for (int i = 0; i < array_size; i++) {
-//            A[i] = stoi(argv[i + 2]);
             cin >> A[i];
-            cout << "A[" << i << "]=" << A[i] << " ";
+//            cout << A[i] << " ";
         }
         cout << endl;
     }
 
-    int ele_per_proc = array_size / n_procs;
-    int ele_fst_proc = array_size - (n_procs - 1) * ele_per_proc;
+    int subarray_size = array_size / n_procs;
+    int subarray_size_root_proc = array_size - (n_procs - 1) * subarray_size;
 
+    vector<int> final_sorted_array;
+    if (my_id == ROOT_ID) {
+        // for root proc send then recv
 
-    vector<int> result;
-    if (my_id == 0) {
-        QuickSort(0, ele_fst_proc - 1, A);
+        // Sort root proc's part
+        quickSort(0, subarray_size_root_proc - 1, A);
         int j = 0;
-        while (j < ele_fst_proc) {
-            result.push_back(A[j]);
-            j++;
+        for (;j < subarray_size_root_proc; j++) {
+            // fill root proc's sorted part
+            final_sorted_array.push_back(A[j]);
         }
 
-        for (int i = 1; i < n_procs; i++) {
-            MPI_Send(&A[0 + (ele_fst_proc) + (i - 1) * ele_per_proc], ele_per_proc, MPI_INT, i, 0, MPI_COMM_WORLD);
-            // cout<<"send : "<<i<<endl;
+        for (int proc_id = 1; proc_id < n_procs; proc_id++) {
+            // send data to child procs
+            MPI_Send(&A[0 + (subarray_size_root_proc) + (proc_id - 1) * subarray_size],
+                     subarray_size, MPI_INT, proc_id, 0,
+                     MPI_COMM_WORLD);
         }
 
-        for (int i = 1; i < n_procs; i++) {
-            int temp_proc_0[ele_per_proc];
-            MPI_Recv(&temp_proc_0[0], ele_per_proc, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            // for(int k=0;k<ele_per_proc;k++)
-            // {
-            //     cout<<temp_proc_0[k]<<" ";
-            // }
-            // cout<<endl;
-
-            MergeArrays(result, temp_proc_0, ele_per_proc);
-            // cout<<"recv : "<<i<<endl;
+        for (int proc_id = 1; proc_id < n_procs; proc_id++) {
+            int sorted_subarrays[subarray_size];
+            // receive sorted data from child procs
+            MPI_Recv(&sorted_subarrays[0], subarray_size, MPI_INT,
+                     proc_id, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            merge(final_sorted_array, sorted_subarrays, subarray_size);
         }
 
     } else {
-        int temp_proc_1[ele_per_proc];
-        MPI_Recv(&temp_proc_1[0], ele_per_proc, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        QuickSort(0, ele_per_proc - 1, temp_proc_1);
+        // for child procs recv then send
 
-        MPI_Send(&temp_proc_1[0], ele_per_proc, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        int sorted_subarrays[subarray_size];
+        // Receive unsorted subarrays in each child proc
+        MPI_Recv(&sorted_subarrays[0], subarray_size, MPI_INT,
+                 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        quickSort(0, subarray_size - 1, sorted_subarrays);
+
+        // send sorted subarrays to root proc
+        MPI_Send(&sorted_subarrays[0], subarray_size, MPI_INT, 0, 0, MPI_COMM_WORLD);
     }
 
     if (my_id == 0) {
+        // print final_sorted_array in root proc
         for (int i = 0; i < array_size; i++) {
-            cout << result[i] << " ";
+            cout << final_sorted_array[i] << " ";
         }
     }
 
