@@ -27,3 +27,9 @@ bash q2.sh 9 \
 0 1 2 3 \
 0 1 2 3 
 ```
+
+bash q3.sh n_procs < q3.in.txt
+
+```shell script
+bash q3.sh 4 < q3.in.txt
+```

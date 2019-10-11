@@ -22,4 +22,4 @@ mpic++ main.cpp
 # cmsargs[1] = array size
 # cmdargs[2: end] = array elements
 #echo "${cmdargs[@]:1:$n_elements+1}"
-echo "${cmdargs[@]:1:$n_elements+1}" | mpirun --oversubscribe -np "$1" a.out
+echo "${cmdargs[@]:1:$n_elements+1}" | mpirun -quiet --oversubscribe -np "$1" a.out
