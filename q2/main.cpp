@@ -108,6 +108,7 @@ int main(int argc, char **argv) {
                         data[1] = my_id;
                         logfile << "breaking  " << pos1 << " and " << my_id - pairs - 1 << endl;
                         logfile.flush();
+//                        cout << "Breaking Pairs of  " << pos1 << " " << my_id - pairs - 1 << endl;
                         data[0] = male;
                         count = 2;
                         MPI_Send(data, count, MPI_INT, 0, my_id, MPI_COMM_WORLD);
@@ -115,6 +116,7 @@ int main(int argc, char **argv) {
                         int men_id = male - 1, women_id = my_id - pairs - 1;
                         logfile << "pairing  " << men_id << " and " << women_id << endl;
                         logfile.flush();
+//                        cout << "Making Pairs of  " << men_id << " " << women_id << endl;
                         count = 1;
                         MPI_Send(&status, count, MPI_INT, currently_assigned, my_id, MPI_COMM_WORLD);
                         currently_assigned = male;
@@ -132,6 +134,7 @@ int main(int argc, char **argv) {
                     currently_assigned = male;
                     data[0] = currently_assigned;
                     count = 2;
+//                    cout << "Making Pairs of  " << data[0] - 1 << " " << data[1] - pairs - 1 << endl;
                     int men_id = data[0] - 1, women_id = data[1] - pairs - 1;
                     logfile << "pairing " << men_id << " and " << women_id << endl;
                     logfile.flush();
